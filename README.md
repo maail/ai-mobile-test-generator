@@ -1,4 +1,63 @@
-# Multi-Language Automated Test Generator
+# AI Mobile Test Generator
+
+Automatically generates unit tests for Swift and Kotlin code using AI.
+
+## Usage
+
+```yaml
+name: Generate Tests
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Generate Tests
+      uses: maail/ai-mobile-test-generator@v1.0.3
+      with:
+        openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+        languages: 'swift,kotlin'
+        model: 'gpt-4-turbo'
+
+    - name: Push Changes
+      run: |
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git config user.name "GitHub Test Generator Bot"
+          git config user.email "<>"
+          git add .
+          git commit -m "Add auto-generated unit tests"
+          git push
+        fi
+```
+
+## Inputs
+
+- `openai-api-key`: Your OpenAI API key (required)
+- `languages`: Comma-separated list of languages to generate tests for (default: 'swift,kotlin')
+- `model`: OpenAI model to use (default: 'gpt-4-turbo')
+
+## How It Works
+
+This action:
+1. Detects Swift and Kotlin files changed in the last commit
+2. Generates comprehensive unit tests using AI
+3. Commits and pushes the generated tests
+
+## Requirements
+
+- An OpenAI API key with access to the specified model
+- Repository permissions to push changes
 
 ## Supported Languages
 - Swift / SwiftUI

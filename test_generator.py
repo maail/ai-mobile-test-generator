@@ -1,10 +1,10 @@
 import os
 import re
 import subprocess
-import openai
+from openai import OpenAI
 
-# Configure OpenAI API
-openai.api_key = os.environ['OPENAI_API_KEY']
+# Configure OpenAI client
+client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
 languages = os.environ.get('LANGUAGES', 'swift,kotlin').split(',')
 model = os.environ.get('MODEL', 'gpt-4-turbo')
 
@@ -56,8 +56,8 @@ def generate_unit_tests(file_path):
     else:
         raise ValueError(f"Unsupported file type: {file_path}")
 
-    # Call OpenAI API to generate tests
-    response = openai.ChatCompletion.create(
+    # Call OpenAI API to generate tests - UPDATED for OpenAI v1.0+
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": "You are a code generator that outputs only valid code with no explanations or markdown. Your output should be ready to use in an IDE without any modifications."},
@@ -65,7 +65,7 @@ def generate_unit_tests(file_path):
         ]
     )
 
-    # Extract the generated test code
+    # Extract the generated test code - UPDATED for OpenAI v1.0+
     test_code = response.choices[0].message.content
     
     # Clean up the response if it contains markdown code blocks
@@ -93,22 +93,52 @@ def create_test_file(source_file, test_code):
     return test_file_path
 
 def commit_tests(test_files):
+    if not test_files:
+        print("No test files to commit")
+        return
+        
+    # Print git status for debugging
+    print("Git status before committing:")
+    subprocess.run(['git', 'status'])
+    
+    # Configure git
+    subprocess.run(['git', 'config', 'user.name', 'GitHub Test Generator Bot'])
+    subprocess.run(['git', 'config', 'user.email', '<>'])
+    
     # Stage the new test files
     for test_file in test_files:
         subprocess.run(['git', 'add', test_file])
-
-    # Commit if there are changes
-    if test_files:
-        subprocess.run([
-            'git', 'config', 'user.name', 'GitHub Test Generator Bot'
-        ])
-        subprocess.run([
-            'git', 'config', 'user.email', '<>'
-        ])
-        subprocess.run([
-            'git', 'commit', '-m', 'Add auto-generated unit tests'
-        ])
-        subprocess.run(['git', 'push'])
+        print(f"Staged file: {test_file}")
+    
+    # Check if we're in a PR
+    event_name = os.environ.get('GITHUB_EVENT_NAME')
+    print(f"GitHub event: {event_name}")
+    
+    # Check if there are changes to commit
+    result = subprocess.run(['git', 'diff', '--staged', '--quiet'], capture_output=True)
+    if result.returncode == 0:
+        print("No changes to commit")
+        return
+    
+    if event_name == 'pull_request':
+        # For pull requests, create a commit but don't push
+        subprocess.run(['git', 'commit', '-m', 'Add auto-generated unit tests'])
+        print("Created commit with generated tests. Changes will appear in the PR.")
+    else:
+        # For direct pushes to branches, commit and push
+        subprocess.run(['git', 'commit', '-m', 'Add auto-generated unit tests'])
+        
+        # Print current branch for debugging
+        result = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True)
+        current_branch = result.stdout.strip()
+        print(f"Pushing to branch: {current_branch}")
+        
+        # Push changes
+        push_result = subprocess.run(['git', 'push'], capture_output=True, text=True)
+        if push_result.returncode != 0:
+            print(f"Push failed: {push_result.stderr}")
+        else:
+            print("Committed and pushed generated tests successfully.")
 
 def main():
     # Get supported languages from environment
