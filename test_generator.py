@@ -27,14 +27,15 @@ def generate_unit_tests(file_path):
         prompt = f"""
         Generate comprehensive unit tests for this Swift/SwiftUI code. 
         Use XCTest framework. Cover different scenarios, edge cases, 
-        and potential error conditions. 
+        and potential error conditions.
+        
+        IMPORTANT: Return ONLY the Swift code for the tests, with no explanations or markdown formatting.
+        Start your response with 'import XCTest' and include only valid Swift code.
         
         Source code:
         ```swift
         {source_code}
         ```
-
-        Generate the test file content.
         """
     
     elif file_path.endswith('.kt') or file_path.endswith('.kts'):
@@ -43,12 +44,13 @@ def generate_unit_tests(file_path):
         Use JUnit 5 for testing. Cover different scenarios, edge cases, 
         and potential error conditions. Use Kotlin's testing idioms.
         
+        IMPORTANT: Return ONLY the Kotlin code for the tests, with no explanations or markdown formatting.
+        Start your response with appropriate import statements and include only valid Kotlin code.
+        
         Source code:
         ```kotlin
         {source_code}
         ```
-
-        Generate the test file content.
         """
     
     else:
@@ -58,14 +60,21 @@ def generate_unit_tests(file_path):
     response = openai.ChatCompletion.create(
         model=model,
         messages=[
-            {"role": "system", "content": "You are a helpful assistant that generates unit tests for different programming languages."},
+            {"role": "system", "content": "You are a code generator that outputs only valid code with no explanations or markdown. Your output should be ready to use in an IDE without any modifications."},
             {"role": "user", "content": prompt}
         ]
     )
 
     # Extract the generated test code
     test_code = response.choices[0].message.content
-
+    
+    # Clean up the response if it contains markdown code blocks
+    if "```" in test_code:
+        # Extract code between code blocks
+        code_match = re.search(r'```(?:swift|kotlin)?\s*(.*?)\s*```', test_code, re.DOTALL)
+        if code_match:
+            test_code = code_match.group(1).strip()
+    
     return test_code
 
 def create_test_file(source_file, test_code):
