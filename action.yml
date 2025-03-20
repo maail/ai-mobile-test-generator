@@ -1,0 +1,29 @@
+name: 'AI Test Generator'
+description: 'Automatically generate unit tests using AI for multiple programming languages'
+inputs:
+  openai-api-key:
+    description: 'OpenAI API Key for test generation'
+    required: true
+  languages:
+    description: 'Comma-separated list of languages to generate tests for (swift,kotlin)'
+    required: false
+    default: 'swift,kotlin'
+  model:
+    description: 'OpenAI model to use for test generation'
+    required: false
+    default: 'gpt-4-turbo'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Test Generator
+      shell: bash
+      run: python ${{ github.action_path }}/test_generator.py
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        LANGUAGES: ${{ inputs.languages }}
+        MODEL: ${{ inputs.model }}
+
+branding:
+  icon: 'code'
+  color: 'purple'
